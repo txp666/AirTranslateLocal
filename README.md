@@ -6,6 +6,14 @@ Local live translation and floating captions for Apple Silicon Macs. Capture sys
 
 The interface focuses on source/target languages, audio input, Start/Stop, and floating captions. This fork has no cloud translation accounts, API-key setup, dubbing, or saved-transcript library. The main workspace and floating captions use the same translation results.
 
+## Download and install
+
+[Download the latest DMG](https://github.com/txp666/AirTranslateLocal/releases/latest/download/AirTranslate-Local.dmg) · [Releases, ZIP archives, and checksums](https://github.com/txp666/AirTranslateLocal/releases/latest) · [v2.0.0 release notes](Release/RELEASE-NOTES-2.0.0.md)
+
+Open the DMG, drag **AirTranslate Local.app** into **Applications**, eject the DMG, and open the installed app. Xcode is only needed for source builds. The download includes the app and setup helpers; Python and model weights are installed separately.
+
+The release uses ad-hoc signing and is **not notarized**. If macOS blocks an app you trust, try opening it once, then choose **System Settings > Privacy & Security > Open Anyway** for **AirTranslate Local**. This grants an exception only to this app. See [Apple's instructions](https://support.apple.com/en-us/102445).
+
 ## Requirements
 
 - Apple Silicon Mac running macOS 26 or later.
@@ -15,12 +23,6 @@ The interface focuses on source/target languages, audio input, Start/Stop, and f
 - Disk space and available memory for your model. The default `mlx-community/Hy-MT2-7B-8bit` has approximately 8 GB of weights; runtime memory usage is additional. See the [model guide](docs/local-mlx.md).
 
 ## First setup
-
-From a checkout of this repository:
-
-```bash
-./script/build_and_run.sh
-```
 
 Open the app and choose **Prepare Local Model**. This explicit step installs the runtime and downloads the selected model. New installations use `~/Library/Application Support/AirTranslate/LocalMLX/.venv`; existing development environments can be reused. If Python is missing, install Python 3.11+ and retry. Python is not installed automatically.
 
@@ -34,6 +36,14 @@ Download the source language's Apple Speech assets when prompted. After changing
 The normal model startup uses cached files in offline mode. A missing runtime or model needs the explicit preparation step; it is not silently downloaded during capture. Developers can alternatively run `./script/setup_local_mlx.sh --download-model`. See [local model setup and troubleshooting](docs/local-mlx.md).
 
 ## Build and verify
+
+To build and run from a source checkout:
+
+```bash
+./script/build_and_run.sh
+```
+
+To run checks and create local packages:
 
 ```bash
 swift test

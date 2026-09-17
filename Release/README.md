@@ -1,8 +1,18 @@
-# Build local release artifacts
+# Downloads and release packaging
+
+## Install a release
+
+[Download the latest DMG](https://github.com/txp666/AirTranslateLocal/releases/latest/download/AirTranslate-Local.dmg) or visit [this repository's latest release](https://github.com/txp666/AirTranslateLocal/releases/latest) for ZIP archives and SHA-256 checksums. See the [v2.0.0 release notes](RELEASE-NOTES-2.0.0.md).
+
+Open the DMG, drag **AirTranslate Local.app** to **Applications**, eject the DMG, and launch the installed app. ZIP users can extract the archive and move the app to Applications. Use an Apple Silicon Mac with macOS 26+ and Python 3.11+. Xcode is needed only to build from source.
+
+The release is ad-hoc signed and **not notarized**. After a blocked launch, use **System Settings > Privacy & Security > Open Anyway** for this app if you trust its source. See [Apple's per-app instructions](https://support.apple.com/en-us/102445).
+
+Choose **Prepare local model** on first launch to install Python dependencies and download the selected model. Python itself must already be installed. The package contains no Python environment or model weights. Initial setup and Apple Speech language assets need internet access; normal model startup uses the local cache. Then select languages/input and choose **Start translating**. See [the setup guide](../docs/local-mlx.md).
+
+## Build from source
 
 These scripts package AirTranslate Local from this checkout. They do not create a GitHub release or publish to the original author's repository. Configure your own repository before any separate publication step.
-
-## Build
 
 On an Apple Silicon Mac with macOS 26+ and Swift 6.2+:
 
@@ -40,7 +50,7 @@ VERSION="0.1.0" BUILD_NUMBER="1" \
 
 No signing secret is needed for ad-hoc local packages. To sign with an installed identity, set `SIGNING_IDENTITY` for release builds or `CODE_SIGN_IDENTITY` for development builds. Never add a certificate private key or password to this repository.
 
-Ad-hoc packages are not notarized and may be blocked by macOS Gatekeeper. Use macOS's per-app **Open Anyway** path only for a build whose origin you trust. The scripts do not disable system security or remove quarantine recursively. Developer ID notarization is a separate distributor-controlled step.
+Developer ID notarization is a separate distributor-controlled step. The scripts do not disable system security or remove quarantine recursively.
 
 ## What CI verifies
 

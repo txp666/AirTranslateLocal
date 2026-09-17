@@ -6,6 +6,14 @@
 
 界面只保留源语言、目标语言、音频输入、开始/停止和字幕选项。此版本不提供云翻译账号、API Key、配音或历史记录库。主界面与悬浮字幕使用同一份译文结果。
 
+## 下载与安装
+
+[下载最新版 DMG](https://github.com/txp666/AirTranslateLocal/releases/latest/download/AirTranslate-Local.dmg) · [发布页、ZIP 与校验值](https://github.com/txp666/AirTranslateLocal/releases/latest) · [v2.0.0 发布说明](Release/RELEASE-NOTES-2.0.0.md)
+
+打开 DMG，将 **AirTranslate Local.app** 拖入 **Applications（应用程序）**，推出磁盘映像，再打开已安装的应用。仅源码构建需要 Xcode。安装包包含应用和安装辅助脚本，Python 与模型权重需要单独安装。
+
+发布包使用临时签名，**未经 Apple 公证**。如果 macOS 阻止打开，且你信任下载来源，先尝试打开一次，再到 **系统设置 > 隐私与安全性 > 仍要打开（Open Anyway）**，仅为 **AirTranslate Local** 添加例外。详见 [Apple 官方说明](https://support.apple.com/en-us/102445)。
+
 ## 环境要求
 
 - Apple Silicon Mac，macOS 26 或更新版本。
@@ -15,12 +23,6 @@
 - 为模型预留磁盘和可用内存。默认 `mlx-community/Hy-MT2-7B-8bit` 的权重约 8 GB，运行时还需要额外内存。详见[模型指南](docs/local-mlx.md)。
 
 ## 首次使用
-
-在本仓库的源码目录执行：
-
-```bash
-./script/build_and_run.sh
-```
 
 打开应用后点击 **准备本地模型**，明确执行运行环境安装和所选模型下载。新安装使用 `~/Library/Application Support/AirTranslate/LocalMLX/.venv`，已有开发环境可以复用。应用不会代为安装 Python；如果提示缺少 Python，请先安装 Python 3.11+ 后重试。
 
@@ -34,6 +36,14 @@
 普通模型启动仅使用已缓存文件，采用离线模式。缺少运行环境或模型时需要明确执行准备步骤，不会在采集过程中悄悄下载。开发者也可以执行 `./script/setup_local_mlx.sh --download-model`。更多说明见[本地模型安装与排错](docs/local-mlx.md)。
 
 ## 构建与验证
+
+如需从源码构建并运行，在本仓库目录执行：
+
+```bash
+./script/build_and_run.sh
+```
+
+运行检查并生成本地安装包：
 
 ```bash
 swift test
