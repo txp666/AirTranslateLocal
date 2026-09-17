@@ -8,38 +8,39 @@ struct LongSessionCaptionPresentationTests {
     @MainActor
     func standardSessionCoalescesLargeTranscriptUpdatesAndKeepsLatestText() async throws {
         let (session, directory) = try makeTranscriptionSession()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let transcriber = LiveSpeechTranscriber()
+        defer {
+            session.stop()
+            try? FileManager.default.removeItem(at: directory)
+        }
         let baseText = String(repeating: "long session transcript ", count: 180)
 
-        session.liveSpeechTranscriber(
-            transcriber,
-            didRecognize: baseText,
-            language: .english,
-            confidence: 0.9
+        let burstTime = session.enqueueRecognizedCaptionForTesting(
+            sourceText: baseText,
+            language: .english
         )
-        #expect(await waitUntil { session.lines.last?.sourceText == baseText.trimmingCharacters(in: .whitespaces) })
+        #expect(session.lines.last?.sourceText == baseText.trimmingCharacters(in: .whitespaces))
 
-        let initialRevision = session.lines.last?.revision
+        let initialRevision = try #require(session.lines.last?.revision)
+        // Keep every event inside one delivery window and enqueue them in a
+        // single MainActor turn. An awaited sleep is only a lower bound: under
+        // CI load it can resume after the real coalescing deadline has passed.
         for index in 1...100 {
-            session.liveSpeechTranscriber(
-                transcriber,
-                didRecognize: baseText + "latest \(index)",
+            session.enqueueRecognizedCaptionForTesting(
+                sourceText: baseText + "latest \(index)",
                 language: .english,
-                confidence: 0.9
+                now: burstTime
             )
         }
 
-        try await Task.sleep(for: .milliseconds(80))
         #expect(session.lines.last?.revision == initialRevision)
 
-        // This assertion verifies eventual coalescing. The separate 50k burst
-        // test owns the MainActor latency budget, so allow parallel test work
-        // enough time to schedule the latest coalesced delivery.
-        #expect(await waitUntil(timeout: 2.0) {
+        // The real delivery and presentation timers must still advance the
+        // latest queued value; the separate delegate/heartbeat tests retain
+        // real-clock integration and responsiveness coverage.
+        try #require(await waitUntil(timeout: 2.0) {
             session.lines.last?.sourceText.hasSuffix("latest 100") == true
         })
-        #expect(session.lines.last?.revision == initialRevision.map { $0 + 1 })
+        #expect(session.lines.last?.revision == initialRevision + 1)
     }
 
     @Test

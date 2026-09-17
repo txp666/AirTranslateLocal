@@ -1141,7 +1141,8 @@ final class TranslationSessionStore {
     private func enqueueRecognizedCaption(
         sourceText: String,
         recognizedLanguage: LanguageOption,
-        confidence: Double
+        confidence: Double,
+        now: Date = Date()
     ) {
         if !isLargeTranscriptRecognitionCoalescingActive {
             let currentSourceLength = lines.last?.sourceText.utf16.count ?? 0
@@ -1151,7 +1152,7 @@ final class TranslationSessionStore {
         }
 
         guard isLargeTranscriptRecognitionCoalescingActive else {
-            lastRecognizedCaptionDeliveryAt = Date()
+            lastRecognizedCaptionDeliveryAt = now
             appendCaption(
                 sourceText: sourceText,
                 recognizedLanguage: recognizedLanguage,
@@ -1168,7 +1169,7 @@ final class TranslationSessionStore {
         )
         guard recognizedCaptionDeliveryTask == nil else { return }
 
-        let elapsed = Date().timeIntervalSince(lastRecognizedCaptionDeliveryAt)
+        let elapsed = now.timeIntervalSince(lastRecognizedCaptionDeliveryAt)
         let delay = max(0, Self.largeTranscriptRecognitionDeliveryInterval - elapsed)
         guard delay > 0 else {
             flushPendingRecognizedCaption()
@@ -2225,6 +2226,21 @@ final class TranslationSessionStore {
     }
 
 #if DEBUG
+    @discardableResult
+    func enqueueRecognizedCaptionForTesting(
+        sourceText: String,
+        language: LanguageOption,
+        now: Date = Date()
+    ) -> Date {
+        enqueueRecognizedCaption(
+            sourceText: sourceText,
+            recognizedLanguage: language,
+            confidence: 0.9,
+            now: now
+        )
+        return lastRecognizedCaptionDeliveryAt
+    }
+
     func beginPermissionSuspendedStartForTesting() -> UInt64? {
         guard !isRunning, !isStarting else { return nil }
 
