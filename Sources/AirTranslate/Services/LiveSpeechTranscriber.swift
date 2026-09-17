@@ -106,44 +106,7 @@ protocol LiveSpeechTranscriberDelegate: AnyObject {
         language: LanguageOption,
         confidence: Double
     )
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didTranslate text: String,
-        language: LanguageOption,
-        confidence: Double
-    )
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didRecognizeSourceTranscript text: String,
-        confidence: Double
-    )
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didOutputAudioPCM16Base64 audio: String,
-        sampleRate: Double
-    )
     func liveSpeechTranscriber(_ transcriber: LiveSpeechTranscriber, didFail error: Error)
-}
-
-extension LiveSpeechTranscriberDelegate {
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didTranslate text: String,
-        language: LanguageOption,
-        confidence: Double
-    ) {}
-
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didRecognizeSourceTranscript text: String,
-        confidence: Double
-    ) {}
-
-    func liveSpeechTranscriber(
-        _ transcriber: LiveSpeechTranscriber,
-        didOutputAudioPCM16Base64 audio: String,
-        sampleRate: Double
-    ) {}
 }
 
 struct SpeechAssetReservation: Sendable {
@@ -955,5 +918,19 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
         )
         reusablePCMBufferCursor = 0
         conversionLock.unlock()
+    }
+}
+
+enum SpeechError: LocalizedError {
+    case notAuthorized
+    case recognizerUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .notAuthorized:
+            AppText.speechPermissionDenied
+        case .recognizerUnavailable:
+            AppText.recognizerUnavailable
+        }
     }
 }

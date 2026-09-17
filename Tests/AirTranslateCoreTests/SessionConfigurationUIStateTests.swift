@@ -10,7 +10,7 @@ struct SessionConfigurationUIStateTests {
             isStarting: true,
             isPaused: false
         )
-        let status = AppText.connectingGeminiLiveTranslation
+        let status = AppText.localModelRuntimeStarting
 
         #expect(phase == .starting)
         #expect(phase.actionSystemImage == "xmark")

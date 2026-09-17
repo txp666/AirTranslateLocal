@@ -7,15 +7,12 @@ struct AirTranslateApp: App {
     @State private var session = TranslationSessionStore()
     @State private var menuBarPanelController = MenuBarPanelController()
 
-    init() {
-        appDelegate.session = session
-    }
-
     var body: some Scene {
-        WindowGroup("AirTranslate", id: AirTranslateWindowID.main) {
+        WindowGroup("AirTranslate Local", id: AirTranslateWindowID.main) {
             ContentView(session: session)
                 .frame(minWidth: 900, minHeight: 560)
                 .background(MenuBarPanelInstaller(session: session, controller: menuBarPanelController))
+                .onAppear { appDelegate.configure(session: session) }
         }
         .commands {
             CommandGroup(replacing: .newItem) {}
@@ -39,9 +36,11 @@ private struct CaptureCommands: Commands {
                     session.stop()
                 } else {
                     session.start()
+                    FloatingCaptionWindowController.open(session: session)
                 }
             }
             .keyboardShortcut(.return, modifiers: [.command])
+            .disabled(!session.isRunning && !session.isStarting && !session.canStartTranslation)
 
             Button(session.isPaused ? AppText.resume : AppText.pause) {
                 session.isPaused ? session.resume() : session.pause()
@@ -52,8 +51,17 @@ private struct CaptureCommands: Commands {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var session: TranslationSessionStore?
+
+    func configure(session: TranslationSessionStore) {
+        // Bind the installed SwiftUI state after the view appears, rather than
+        // reading @State during App.init and starting a different store.
+        guard self.session !== session else { return }
+        self.session = session
+        session.prepareLocalModel()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let appIcon = NSImage(named: "AppIcon") {

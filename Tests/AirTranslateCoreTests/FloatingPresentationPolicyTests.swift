@@ -56,8 +56,8 @@ struct FloatingPresentationPolicyTests {
         #expect(!session.floatingSourceText.contains("kilogram"))
         #expect(session.floatingSourceText.contains("juliet"))
 
-        // The capped dwell (2.2s) promotes the queued rewrite shortly after.
-        #expect(await floatingSource(of: session, contains: "kilogram", timeout: 2.6))
+        // The readable capped dwell promotes the queued rewrite without flashing.
+        #expect(await floatingSource(of: session, contains: "kilogram", timeout: 3.2))
 
         // The promotion introduced only a few unread characters, so the next
         // rewrite advances after the minimum dwell instead of a length-based one.
@@ -72,13 +72,39 @@ struct FloatingPresentationPolicyTests {
         #expect(await floatingSource(of: session, contains: "lambda", timeout: 0.3))
     }
 
+    @Test
+    @MainActor
+    func floatingCaptionsHideAfterSilenceAndReturnWithSpeech() async throws {
+        let session = makeSession()
+        let transcriber = LiveSpeechTranscriber()
+
+        session.liveSpeechTranscriber(
+            transcriber,
+            didRecognize: "alpha bravo charlie",
+            language: .english,
+            confidence: 0.9
+        )
+        #expect(await floatingSource(of: session, contains: "charlie"))
+
+        try await Task.sleep(for: .milliseconds(3_800))
+        #expect(session.isFloatingCaptionHiddenAfterSilence)
+        #expect(session.floatingSourceText.isEmpty)
+
+        session.liveSpeechTranscriber(
+            transcriber,
+            didRecognize: "alpha bravo charlie delta",
+            language: .english,
+            confidence: 0.9
+        )
+        #expect(await floatingSource(of: session, contains: "delta"))
+        #expect(!session.isFloatingCaptionHiddenAfterSilence)
+    }
+
     @MainActor
     private func makeSession() -> TranslationSessionStore {
-        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
-        session.useAppleDefaultMode()
+        let session = makeLocalTestSession()
         session.sourceLanguage = .english
         session.targetLanguage = .korean
-        session.isAppleSourceAutoDetectionEnabled = false
         session.paragraphBreakSilenceInterval = 30
         session.isRunning = true
         return session

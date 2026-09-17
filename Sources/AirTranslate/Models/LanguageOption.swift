@@ -11,12 +11,18 @@ struct LanguageOption: Identifiable, Hashable, Sendable {
 
     static let english = LanguageOption(id: "en-US", title: "English", locale: Locale(identifier: "en-US"))
     static let korean = LanguageOption(id: "ko-KR", title: "Korean", locale: Locale(identifier: "ko-KR"))
+    static let japanese = LanguageOption(id: "ja-JP", title: "Japanese", locale: Locale(identifier: "ja-JP"))
+    static let chineseSimplified = LanguageOption(
+        id: "zh-CN",
+        title: "Chinese Simplified",
+        locale: Locale(identifier: "zh-CN")
+    )
 
     static let supported: [LanguageOption] = [
         english,
         korean,
-        .init(id: "ja-JP", title: "Japanese", locale: Locale(identifier: "ja-JP")),
-        .init(id: "zh-CN", title: "Chinese Simplified", locale: Locale(identifier: "zh-CN")),
+        japanese,
+        chineseSimplified,
         .init(id: "es-ES", title: "Spanish", locale: Locale(identifier: "es-ES")),
         .init(id: "fr-FR", title: "French", locale: Locale(identifier: "fr-FR")),
         .init(id: "de-DE", title: "German", locale: Locale(identifier: "de-DE"))

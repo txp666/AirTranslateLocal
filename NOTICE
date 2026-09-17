@@ -2,3 +2,11 @@ AirTranslate
 Copyright 2026 himomohi
 
 This product includes software developed by himomohi.
+
+AirTranslate Local is a modified fork focused on local MLX translation and
+live/floating captions. Local-edition modifications copyright 2026
+AirTranslate Local contributors. The original Apache License 2.0 is retained.
+
+Upstream source: https://github.com/himomohi/AirTranslate
+Third-party runtimes and model weights are installed separately and retain
+their respective licenses and notices.

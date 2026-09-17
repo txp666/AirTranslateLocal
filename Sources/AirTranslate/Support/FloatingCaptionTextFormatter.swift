@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 private enum FloatingCaptionTextLayout {
     static let defaultLineWidthUnits = 32.0
@@ -18,6 +18,42 @@ private enum FloatingCaptionTextLayout {
 }
 
 extension String {
+    @MainActor
+    func floatingCaptionTail(maxLines: Int, width: CGFloat, font: NSFont) -> String {
+        let maxLines = max(1, maxLines)
+        let scanCharacters = maxLines * 72 * FloatingCaptionTextLayout.scanLineMultiplier
+        let scanText = String(boundedSuffix(maxCharacters: scanCharacters))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !scanText.isEmpty else { return "" }
+
+        // Match the window's font and available width before selecting its tail.
+        // Estimated character widths can produce extra physical lines, allowing
+        // the view's line limit to truncate the newest translated words.
+        let textStorage = NSTextStorage(string: scanText, attributes: [.font: font])
+        let layoutManager = NSLayoutManager()
+        // Leave room for fractional glyph advances that differ slightly between
+        // TextKit's line breaking and SwiftUI's final text layout.
+        let textContainer = NSTextContainer(size: NSSize(width: max(1, width - 2), height: .greatestFiniteMagnitude))
+        textContainer.lineFragmentPadding = 0
+        textContainer.lineBreakMode = .byWordWrapping
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+
+        let glyphRange = layoutManager.glyphRange(for: textContainer)
+        let source = scanText as NSString
+        var lines: [String] = []
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { _, _, _, range, _ in
+            let characterRange = layoutManager.characterRange(forGlyphRange: range, actualGlyphRange: nil)
+            let line = source.substring(with: characterRange)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !line.isEmpty {
+                lines.append(line)
+            }
+        }
+
+        return lines.suffix(maxLines).joined(separator: "\n")
+    }
+
     func floatingCaptionTail(
         maxLines: Int,
         lineWidthUnits: Double = FloatingCaptionTextLayout.defaultLineWidthUnits

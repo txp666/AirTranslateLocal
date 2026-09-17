@@ -95,8 +95,7 @@ struct LongSessionCaptionPresentationTests {
         session.stop()
 
         #expect(session.lines.last?.sourceText.hasSuffix("final buffered words") == true)
-        #expect(session.statusMessage == AppText.transcriptSavedToast)
-        #expect(savedTranscriptText(in: directory).contains("final buffered words"))
+        #expect(session.statusMessage == AppText.stopped)
     }
 
     @Test
@@ -126,12 +125,11 @@ struct LongSessionCaptionPresentationTests {
 
         #expect(session.lines.last?.sourceText.hasSuffix("pause buffered words") == true)
         #expect(session.isPaused)
-        #expect(savedTranscriptText(in: directory).contains("pause buffered words"))
     }
 
     @Test
     @MainActor
-    func terminationFlushesAndSavesLatestCoalescedLongTranscript() async throws {
+    func terminationFlushesLatestCoalescedLongTranscriptWithoutSaving() async throws {
         let (session, directory) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
         let transcriber = LiveSpeechTranscriber()
@@ -156,31 +154,10 @@ struct LongSessionCaptionPresentationTests {
 
         #expect(session.lines.last?.sourceText.hasSuffix("termination buffered words") == true)
         let savedFiles = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-        #expect(!savedFiles.isEmpty)
-        #expect(savedTranscriptText(in: directory).contains("termination buffered words"))
+        #expect(savedFiles.isEmpty)
     }
 
-    @Test
-    @MainActor
-    func runningSessionCheckpointsTranscriptWithoutStopping() async throws {
-        let (session, directory) = try makeTranscriptionSession(checkpointInterval: 0.04)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let transcriber = LiveSpeechTranscriber()
 
-        session.liveSpeechTranscriber(
-            transcriber,
-            didRecognize: "checkpointed while capture remains active",
-            language: .english,
-            confidence: 0.9
-        )
-
-        #expect(await waitUntil(timeout: 1.5) {
-            savedTranscriptText(in: directory).contains("checkpointed while capture remains active")
-        })
-        #expect(session.isRunning)
-        #expect(!session.isPaused)
-        session.stop()
-    }
 
     @Test
     @MainActor
@@ -218,39 +195,19 @@ struct LongSessionCaptionPresentationTests {
     }
 
     @MainActor
-    private func makeTranscriptionSession(
-        checkpointInterval: TimeInterval = 30
-    ) throws -> (TranslationSessionStore, URL) {
+    private func makeTranscriptionSession() throws -> (TranslationSessionStore, URL) {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AirTranslateLongSessionTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let session = TranslationSessionStore(
-            modelAvailabilityProvider: { _, _ in [:] },
-            transcriptsDirectoryURL: directory,
-            transcriptCheckpointInterval: checkpointInterval
-        )
-        session.useTranscribeOnlyMode()
+        let session = makeLocalTestSession()
         session.sourceLanguage = .english
         session.targetLanguage = .korean
-        session.sessionDurationMode = .standard
-        session.isAppleSourceAutoDetectionEnabled = false
         session.paragraphBreakSilenceInterval = 30
         session.isRunning = true
         return (session, directory)
     }
 
-    private func savedTranscriptText(in directory: URL) -> String {
-        guard let fileURLs = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil
-        ) else {
-            return ""
-        }
 
-        return fileURLs
-            .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
-            .joined(separator: "\n")
-    }
 
     @MainActor
     private func waitUntil(

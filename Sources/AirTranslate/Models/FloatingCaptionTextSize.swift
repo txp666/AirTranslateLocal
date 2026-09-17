@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum FloatingCaptionTextSize: String, CaseIterable, Identifiable {
@@ -27,6 +28,14 @@ enum FloatingCaptionTextSize: String, CaseIterable, Identifiable {
 
     var secondaryFont: Font {
         .system(size: secondaryPointSize, weight: .medium)
+    }
+
+    var primaryNSFont: NSFont {
+        .systemFont(ofSize: primaryPointSize, weight: .semibold)
+    }
+
+    var secondaryNSFont: NSFont {
+        .systemFont(ofSize: secondaryPointSize, weight: .medium)
     }
 
     var primaryLineHeight: CGFloat {

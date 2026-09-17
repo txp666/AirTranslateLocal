@@ -3,52 +3,6 @@ import ScreenCaptureKit
 import Testing
 @testable import AirTranslate
 
-private enum DelayedTranslationPreparationError: LocalizedError {
-    case firstGenerationFailed
-
-    var errorDescription: String? {
-        "First-generation translation preparation failed."
-    }
-}
-
-private actor SuspendedTranslationPreparation {
-    private var continuations: [CheckedContinuation<Void, Error>?] = []
-
-    func prepare(
-        source _: LanguageOption,
-        target _: LanguageOption,
-        model _: IntelligenceModel
-    ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            continuations.append(continuation)
-        }
-    }
-
-    var pendingCount: Int {
-        continuations.compactMap { $0 }.count
-    }
-
-    func fail(call index: Int, with error: Error) {
-        guard continuations.indices.contains(index),
-              let continuation = continuations[index]
-        else {
-            return
-        }
-        continuations[index] = nil
-        continuation.resume(throwing: error)
-    }
-
-    func succeed(call index: Int) {
-        guard continuations.indices.contains(index),
-              let continuation = continuations[index]
-        else {
-            return
-        }
-        continuations[index] = nil
-        continuation.resume()
-    }
-}
-
 @Suite
 struct AppleLifecycleP2Tests {
     @Test
@@ -100,28 +54,24 @@ struct AppleLifecycleP2Tests {
 
     @Test
     @MainActor
-    func externalUserStopSavesUnlocksRestartsAndIgnoresStaleGeneration() async throws {
+    func externalUserStopKeepsVisibleTextUnlocksRestartsAndIgnoresStaleGeneration() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AirTranslateUserStopTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let session = TranslationSessionStore(
-            modelAvailabilityProvider: { _, _ in [:] },
-            transcriptsDirectoryURL: directory
-        )
-        session.savedTranscriptContentMode = .original
+        let session = makeLocalTestSession()
         let capture = session.systemAudioCaptureForTesting
         let firstPipeline = session.activateLiveCallbackPipelineForTesting()
         let firstGeneration = firstPipeline.generation
         session.liveSpeechTranscriber(
             firstPipeline.transcriber,
-            didRecognize: "External user stop must save this transcript.",
+            didRecognize: "External user stop must retain visible captions.",
             language: .english,
             confidence: 0.9
         )
         #expect(await waitUntil {
-            session.lines.last?.sourceText == "External user stop must save this transcript."
+            session.lines.last?.sourceText == "External user stop must retain visible captions."
         })
 
         #expect(
@@ -137,11 +87,9 @@ struct AppleLifecycleP2Tests {
         )
         await waitForStoppedPipeline(on: session)
 
-        #expect(session.statusMessage == AppText.transcriptSavedToast)
-        #expect(await waitUntil {
-            savedTranscriptText(in: directory)
-                .contains("External user stop must save this transcript.")
-        })
+        #expect(session.statusMessage == AppText.stopped)
+        #expect(session.lines.last?.sourceText == "External user stop must retain visible captions.")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
         #expect(
             !SidebarSessionConfigurationAccess.isLocked(
                 isRunning: session.isRunning,
@@ -183,7 +131,7 @@ struct AppleLifecycleP2Tests {
     @Test
     @MainActor
     func userStoppedThrownDuringInitialCaptureStartIsNormalNotStartFailure() async throws {
-        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let session = makeLocalTestSession()
         session.audioInputSource = .systemAudio
         let userStopped = NSError(
             domain: SCStreamErrorDomain,
@@ -205,7 +153,7 @@ struct AppleLifecycleP2Tests {
         #expect(session.isRunning)
         session.stop()
 
-        let failedSession = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let failedSession = makeLocalTestSession()
         failedSession.audioInputSource = .systemAudio
         let systemFailure = NSError(
             domain: SCStreamErrorDomain,
@@ -219,55 +167,12 @@ struct AppleLifecycleP2Tests {
         #expect(failedSession.statusMessage == AppText.startFailed(systemFailure.localizedDescription))
     }
 
-    @Test
-    @MainActor
-    func lateWarmupFailureFromStoppedGenerationCannotOverwriteRestartedSessionStatus() async throws {
-        let preparation = SuspendedTranslationPreparation()
-        let session = TranslationSessionStore(
-            modelAvailabilityProvider: { _, _ in [:] },
-            translationSessionPreparer: { source, target, model in
-                try await preparation.prepare(
-                    source: source,
-                    target: target,
-                    model: model
-                )
-            }
-        )
-        session.openAITranslationModel = .off
-        session.geminiTranslationModel = .off
-        session.selectedModel = .appleSystem
 
-        let firstGeneration = session.activateLiveCallbackPipelineForTesting().generation
-        session.warmTranslationSessionForTesting()
-        await waitForPendingPreparations(1, on: preparation)
-
-        session.stop()
-        let secondGeneration = session.activateLiveCallbackPipelineForTesting().generation
-        #expect(secondGeneration != firstGeneration)
-        let secondGenerationStatus = "Generation 2 is listening."
-        session.statusMessage = secondGenerationStatus
-        session.warmTranslationSessionForTesting()
-        await waitForPendingPreparations(2, on: preparation)
-
-        await preparation.fail(
-            call: 0,
-            with: DelayedTranslationPreparationError.firstGenerationFailed
-        )
-        await settleMainActorTasks()
-
-        #expect(session.isRunning)
-        #expect(session.statusMessage == secondGenerationStatus)
-
-        await preparation.succeed(call: 1)
-        await settleMainActorTasks()
-        #expect(session.statusMessage == secondGenerationStatus)
-        session.stop()
-    }
 
     @Test
     @MainActor
     func activeAppleSpeechBackpressureProducesVisibleControlledStop() async {
-        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let session = makeLocalTestSession()
         let activePipeline = session.activateLiveCallbackPipelineForTesting()
         let error = LiveSpeechTranscriberError.audioInputBackpressure(bufferLimit: 32)
 
@@ -284,41 +189,13 @@ struct AppleLifecycleP2Tests {
             audioInputSource: .systemAudio,
             microphoneDeviceUniqueID: nil,
             sourceLanguage: .english,
-            targetLanguage: .korean,
-            selectedModel: .appleSystem,
-            openAITranscriptionModel: .off,
-            openAITranslationModel: .off,
-            geminiTranslationModel: .off,
-            usesAppleSourceAutoDetection: false
+            targetLanguage: .korean
         )
     }
 
-    private func waitForPendingPreparations(
-        _ expectedCount: Int,
-        on preparation: SuspendedTranslationPreparation
-    ) async {
-        for _ in 0..<200 {
-            if await preparation.pendingCount == expectedCount {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        let pendingCount = await preparation.pendingCount
-        #expect(pendingCount == expectedCount)
-    }
 
-    private func savedTranscriptText(in directory: URL) -> String {
-        guard let fileURLs = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil
-        ) else {
-            return ""
-        }
 
-        return fileURLs
-            .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
-            .joined(separator: "\n")
-    }
+
 
     @MainActor
     private func waitUntil(

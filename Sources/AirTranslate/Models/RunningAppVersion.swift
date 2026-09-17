@@ -46,7 +46,7 @@ struct RunningAppVersion: Equatable {
             return URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
         }
 
-        return URL(fileURLWithPath: String(cString: buffer)).standardizedFileURL
+        return URL(fileURLWithPath: String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)).standardizedFileURL
     }
 
     private static func packagedInfoDictionary(for executableURL: URL) -> [String: Any]? {

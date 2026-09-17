@@ -1,7 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct FloatingCaptionWindowView: View {
     @Bindable var session: TranslationSessionStore
+    @State private var contentWidth: CGFloat = 676
 
     var body: some View {
         ZStack {
@@ -10,10 +12,16 @@ struct FloatingCaptionWindowView: View {
             VStack(spacing: 8) {
                 content
             }
+            .frame(maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.width
+            } action: { width in
+                contentWidth = width
+            }
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
             .background {
-                if hasVisibleCaptionText {
+                if hasVisibleCaptionText, session.showsFloatingCaptionBackground {
                     RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
                         .fill(.black.opacity(0.76))
                         .overlay {
@@ -42,38 +50,31 @@ struct FloatingCaptionWindowView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch session.floatingCaptionDisplayMode {
-        case .original:
-            subtitleText(sourceText, font: session.floatingCaptionTextSize.primaryFont)
-            if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
-            }
-        case .originalAndTranslation:
-            if !sourceText.isEmpty {
-                subtitleText(sourceText, font: session.floatingCaptionTextSize.secondaryFont)
-                    .opacity(0.82)
-                if !translationText.isEmpty {
-                    subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
-                } else if !noticeText.isEmpty {
-                    noticeSubtitleText(noticeText)
+        if !session.isFloatingCaptionHiddenAfterSilence {
+            switch session.floatingCaptionDisplayMode {
+            case .original:
+                subtitleText(sourceText, font: session.floatingCaptionTextSize.primaryNSFont)
+            case .originalAndTranslation:
+                if !sourceText.isEmpty {
+                    subtitleText(sourceText, font: session.floatingCaptionTextSize.secondaryNSFont)
+                        .opacity(0.82)
+                    if !translationText.isEmpty {
+                        subtitleText(translationText, font: session.floatingCaptionTextSize.primaryNSFont)
+                    } else {
+                        subtitleText(" ", font: session.floatingCaptionTextSize.primaryNSFont)
+                            .opacity(0)
+                    }
+                } else if !translationText.isEmpty {
+                    subtitleText(translationText, font: session.floatingCaptionTextSize.primaryNSFont)
                 } else {
-                    subtitleText(" ", font: session.floatingCaptionTextSize.primaryFont)
-                        .opacity(0)
+                    subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryNSFont)
                 }
-            } else if !translationText.isEmpty {
-                subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
-            } else if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
-            } else {
-                subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryFont)
-            }
-        case .translation:
-            if !translationText.isEmpty {
-                subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
-            } else if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
-            } else if sourceText.isEmpty {
-                subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryFont)
+            case .translation:
+                if !translationText.isEmpty {
+                    subtitleText(translationText, font: session.floatingCaptionTextSize.primaryNSFont)
+                } else if sourceText.isEmpty {
+                    subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryNSFont)
+                }
             }
         }
     }
@@ -86,16 +87,16 @@ struct FloatingCaptionWindowView: View {
         session.floatingTranslationText
     }
 
-    private var noticeText: String {
-        session.floatingNoticeText ?? ""
-    }
-
     private var hasVisibleCaptionText: Bool {
-        switch session.floatingCaptionDisplayMode {
+        if session.isFloatingCaptionHiddenAfterSilence {
+            return false
+        }
+
+        return switch session.floatingCaptionDisplayMode {
         case .original, .originalAndTranslation:
             true
         case .translation:
-            !translationText.isEmpty || !noticeText.isEmpty || sourceText.isEmpty
+            !translationText.isEmpty || sourceText.isEmpty
         }
     }
 
@@ -112,7 +113,7 @@ struct FloatingCaptionWindowView: View {
 
         switch session.floatingCaptionDisplayMode {
         case .original, .translation:
-            textHeight = noticeText.isEmpty ? primaryHeight : primaryHeight + secondaryHeight + 8
+            textHeight = primaryHeight
         case .originalAndTranslation:
             textHeight = primaryHeight + secondaryHeight + 8
         }
@@ -120,26 +121,21 @@ struct FloatingCaptionWindowView: View {
         return min(max(90, textHeight + 28), 720)
     }
 
-    private func subtitleText(_ text: String, font: Font) -> some View {
-        StreamingTranscriptText(
-            text: text.isEmpty ? AppText.noFloatingCaptionsYet : text,
-            font: font,
-            foregroundColor: .white,
-            isTextSelectionEnabled: false,
-            lineLimit: lineLimit,
-            textAlignment: .center,
-            frameAlignment: .center,
-            truncationMode: .tail
-        )
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .lineSpacing(5)
-        .shadow(color: .black.opacity(0.95), radius: 3, x: 0, y: 1)
-        .shadow(color: .black.opacity(0.65), radius: 8, x: 0, y: 2)
-    }
+    private func subtitleText(_ text: String, font: NSFont) -> some View {
+        let displayText = text.isEmpty ? AppText.noFloatingCaptionsYet : text
+        let caption = displayText.floatingCaptionTail(maxLines: lineLimit, width: contentWidth, font: font)
 
-    private func noticeSubtitleText(_ text: String) -> some View {
-        subtitleText(text, font: session.floatingCaptionTextSize.secondaryFont)
-            .opacity(0.78)
+        return Text(caption.isEmpty ? " " : caption)
+            .font(Font(font))
+            .foregroundStyle(.white)
+            .textSelection(.disabled)
+            .lineLimit(lineLimit)
+            .truncationMode(.head)
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .lineSpacing(5)
+            .shadow(color: .black.opacity(0.95), radius: 3, x: 0, y: 1)
+            .shadow(color: .black.opacity(0.65), radius: 8, x: 0, y: 2)
     }
 }

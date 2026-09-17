@@ -1,86 +1,49 @@
-# AirTranslate Open Source Release Kit
+# Build local release artifacts
 
-This folder contains reproducible release materials for the Apache 2.0 open-source AirTranslate project.
+These scripts package AirTranslate Local from this checkout. They do not create a GitHub release or publish to the original author's repository. Configure your own repository before any separate publication step.
 
-## What This Adds
+## Build
 
-- A repeatable local app-bundle and ZIP build script.
-- Screenshot and README assets for GitHub releases and project documentation.
-- A privacy notice draft aligned with the current local-first app behavior.
-- Version history for public source releases.
-
-## Assumptions
-
-- The app name remains `AirTranslate`.
-- The bundle identifier is `dev.appcaster.AirTranslate`.
-- The current release-candidate version is `1.5.1`.
-- The project is published as Apache 2.0 open source.
-- AirTranslate is an independent project and is not affiliated with Apple, OpenAI, or Google.
-- The release bundle must never include user API keys, bearer tokens, signing private keys, provisioning profiles, or local `.env` files.
-
-Override the defaults when needed:
+On an Apple Silicon Mac with macOS 26+ and Swift 6.2+:
 
 ```bash
-BUNDLE_ID="com.example.AirTranslate" VERSION="1.5.1" BUILD_NUMBER="151"
+swift test
+./script/verify_packaging_permissions.sh
+./Release/build_open_source_release.sh all
+./script/verify_packaging_permissions.sh --release-artifacts
 ```
 
-## Local Release Build
+Use `zip` or `dmg` instead of `all` for one archive format. Outputs use the metadata in `script/app_metadata.sh`:
 
-This creates an ad-hoc signed app bundle and ZIP for local inspection or attaching to a GitHub release.
-
-```bash
-./Release/build_open_source_release.sh
+```text
+Release/product/AirTranslate Local.app
+Release/product/AirTranslate-Local-<version>-<build>.zip
+Release/product/AirTranslate-Local-<version>-<build>.zip.sha256
+Release/product/AirTranslate-Local.dmg
+Release/product/AirTranslate-Local.dmg.sha256
 ```
 
-To build a DMG for the pre-notarization GitHub Release install path:
+The bundle includes `LICENSE`, `NOTICE`, the local runtime setup script, and the process watchdog. It does not include model weights, Python, virtual environments, or user settings. A fresh machine still needs the [one-time runtime/model setup](../docs/local-mlx.md).
+
+## Identity and signing
+
+The executable target remains `AirTranslate`. The display/bundle name defaults to `AirTranslate Local`, with bundle ID `com.txp.AirTranslateLocal` for existing local permission compatibility. Set environment variables to identify your own distribution:
 
 ```bash
-./Release/build_open_source_release.sh dmg
-```
-
-To build both ZIP and DMG artifacts:
-
-```bash
+DISPLAY_NAME="My Local Captions" \
+APP_BUNDLE_NAME="My Local Captions" \
+ARTIFACT_NAME="My-Local-Captions" \
+BUNDLE_ID="com.example.LocalCaptions" \
+VERSION="0.1.0" BUILD_NUMBER="1" \
 ./Release/build_open_source_release.sh all
 ```
 
-Outputs:
+No signing secret is needed for ad-hoc local packages. To sign with an installed identity, set `SIGNING_IDENTITY` for release builds or `CODE_SIGN_IDENTITY` for development builds. Never add a certificate private key or password to this repository.
 
-```text
-Release/product/AirTranslate.app
-Release/product/AirTranslate-<version>-<build>.zip
-Release/product/AirTranslate-<version>.zip
-Release/product/AirTranslate.dmg
-Release/product/AirTranslate.dmg.sha256
-Release/product/AirTranslate-<version>.dmg
-Release/product/AirTranslate-<version>.dmg.sha256
-```
+Ad-hoc packages are not notarized and may be blocked by macOS Gatekeeper. Use macOS's per-app **Open Anyway** path only for a build whose origin you trust. The scripts do not disable system security or remove quarantine recursively. Developer ID notarization is a separate distributor-controlled step.
 
-`Release/product/` is generated output and should stay out of commits.
+## What CI verifies
 
-## Secret Safety Gate
+The workflow runs Swift tests, permission checks, shell/Python syntax checks, a release build, and ZIP/DMG integrity checks. It reads versions from the metadata script, checks bundled resources and hashes, and uploads artifacts to that workflow run. It has read-only repository permissions and no release publication step. It neither downloads the model nor claims to test live capture on a hosted runner.
 
-Before committing or uploading a release candidate, run a secret scan over the source tree and current diff. The app may mention `OPENAI_API_KEY` as a Keychain account name, but it must not contain a real key value, bearer credential, signing private key, provisioning profile, or `.env` file.
-
-Suggested local checks:
-
-```bash
-rg -n --hidden --glob '!.git/**' --glob '!.build/**' --glob '!Release/product/**' \
-  -i 'bearer|private key|client secret|access token|refresh token|api key' .
-
-git diff -- . ':(exclude).build/**' ':(exclude)Release/product/**' | \
-  rg -n -i 'bearer|private key|client secret|access token|refresh token|api key'
-```
-
-## Public Release Checklist
-
-- Confirm `swift build` passes.
-- Confirm `swift test` passes.
-- Confirm the release ZIP contains `LICENSE` and `NOTICE`.
-- Confirm the release DMG opens and contains `AirTranslate.app` plus the Applications shortcut.
-- Confirm `AirTranslate.dmg.sha256` matches the uploaded DMG.
-- Confirm the release ZIP does not contain API keys, tokens, private keys, provisioning profiles, or `.env` files.
-- Confirm OpenAI GPT mode still requires a user-provided key at runtime and does not bundle one.
-- Confirm Gemini Live mode still requires a user-provided key at runtime and does not bundle one.
-- Confirm `Release/product/` remains ignored.
-- Publish the new GitHub Release without deleting previous release versions or tags.
+Before distributing, also test the installed app with real audio, Apple Speech assets, and a cached model on a fresh user profile. Confirm that Start/Stop, both audio inputs, floating captions, and app-owned model shutdown work. Keep the original Apache license/NOTICE and include accurate dependency/installation instructions.

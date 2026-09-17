@@ -3,198 +3,59 @@ import SwiftUI
 
 struct CaptionBoardView: View {
     @Bindable var session: TranslationSessionStore
-    @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AirTranslateDesign.sectionSpacing) {
-            CaptionBoardHeader(
-                session: session,
-                isFloatingCaptionVisible: isFloatingCaptionVisible
-            )
-
-            CaptionTranscriptFeed(session: session)
-        }
-        .padding(AirTranslateDesign.workspacePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear {
-            syncFloatingCaptionVisibility()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: FloatingCaptionWindowController.visibilityDidChangeNotification)) { _ in
-            syncFloatingCaptionVisibility()
-        }
-    }
-
-    private func syncFloatingCaptionVisibility() {
-        isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
-    }
-}
-
-private struct CaptionBoardHeader: View {
-    @Bindable var session: TranslationSessionStore
-    let isFloatingCaptionVisible: Bool
-
-    var body: some View {
-        SessionOverviewCard(
-            session: session,
-            title: AppText.transcriptWorkspace,
-            subtitle: session.languageSummary,
-            isRunning: session.isRunning,
-            isStarting: session.isStarting,
-            isPaused: session.isPaused,
-            statusMessage: session.statusMessage,
-            isFloatingCaptionVisible: isFloatingCaptionVisible
-        )
-    }
-}
-
-private struct CaptionTranscriptFeed: View {
-    @Bindable var session: TranslationSessionStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var longSessionAutoScrollTask: Task<Void, Never>?
-
-    private struct LatestLineKey: Equatable {
-        let id: UUID
-        let revision: Int
-    }
-
-    private var latestLineKey: LatestLineKey? {
-        session.lines.last.map { LatestLineKey(id: $0.id, revision: $0.revision) }
-    }
-
-    var body: some View {
-        if !session.hasTranscriptContent && !session.isRunning {
-            ContentUnavailableView(
-                AppText.noCaptionsYet,
-                systemImage: "captions.bubble",
-                description: Text(
-                    session.isUsingGPTTranscriptionMode
-                        ? AppText.gptTranscriptionNoCaptionsDescription(for: session.audioInputSource)
-                        : AppText.noCaptionsDescription
-                )
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(AirTranslateDesign.workspacePadding)
-            .airTranslateSurface()
-        } else {
-            transcriptScrollView
-        }
-    }
-
-    private var transcriptScrollView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    if session.shouldShowTranscript && session.lines.isEmpty {
-                        Text(AppText.waitingForTranscript)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 96)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(Color.primary.opacity(0.08))
-                            }
-                    }
-
-                    ForEach(session.lines) { line in
-                        CaptionLineView(
-                            line: line,
-                            showsTranslationPane: session.shouldShowTranslationPane
-                        )
-                            .equatable()
-                            .id(line.id)
-                            .transition(
-                                reduceMotion
-                                    ? .opacity
-                                    : .move(edge: .bottom).combined(with: .opacity)
-                            )
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LocalUI.text("实时字幕", "Live captions"))
+                        .font(.title2.bold())
+                    Text(session.languageSummary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
-                .animation(
-                    reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86),
-                    value: session.lines.count
-                )
-            }
-            .onChange(of: latestLineKey) { oldValue, newValue in
-                guard let newValue else { return }
-
-                if newValue.id != oldValue?.id {
-                    longSessionAutoScrollTask?.cancel()
-                    longSessionAutoScrollTask = nil
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
-                        proxy.scrollTo(newValue.id, anchor: .bottom)
-                    }
-                } else {
-                    scrollToLatestRevision(newValue.id, proxy: proxy)
+                Spacer()
+                if session.isStarting {
+                    ProgressView().controlSize(.small)
                 }
+                Text(session.statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 280, alignment: .trailing)
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onDisappear {
-            longSessionAutoScrollTask?.cancel()
-            longSessionAutoScrollTask = nil
-        }
-    }
 
-    private func scrollToLatestRevision(_ id: UUID, proxy: ScrollViewProxy) {
-        guard session.shouldCoalesceTranscriptAutoScroll else {
-            proxy.scrollTo(id, anchor: .bottom)
-            return
-        }
-
-        longSessionAutoScrollTask?.cancel()
-        longSessionAutoScrollTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled else { return }
-            proxy.scrollTo(id, anchor: .bottom)
-            longSessionAutoScrollTask = nil
-        }
-    }
-}
-
-private struct CaptionLineView: View, Equatable {
-    let line: CaptionLine
-    let showsTranslationPane: Bool
-
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.line.id == rhs.line.id
-            && lhs.line.revision == rhs.line.revision
-            && lhs.showsTranslationPane == rhs.showsTranslationPane
-    }
-
-    var body: some View {
-        Group {
-            if showsTranslationPane {
+            if let line = session.lines.last {
                 HStack(alignment: .top, spacing: 16) {
-                    originalPane
-                    translationPane
+                    TranscriptPane(
+                        title: AppText.original,
+                        description: LocalUI.text("正在识别的语音", "Recognized speech"),
+                        text: line.sourceText,
+                        displayText: line.sourceDisplayText,
+                        isPrimary: true
+                    )
+                    TranscriptPane(
+                        title: AppText.translation,
+                        description: LocalUI.text("本地模型生成的译文", "Translated on this Mac"),
+                        text: line.translatedText,
+                        displayText: line.translatedDisplayText,
+                        isPrimary: false
+                    )
                 }
             } else {
-                originalPane
+                ContentUnavailableView {
+                    Label(LocalUI.text("让声音变成字幕", "Turn speech into captions"), systemImage: "captions.bubble")
+                } description: {
+                    Text(LocalUI.text(
+                        "选择原文与译文语言，点击“开始翻译”。播放 Mac 音频，或使用麦克风说话。",
+                        "Choose your languages and start translating. Play audio on your Mac or speak into the microphone."
+                    ))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .airTranslateSurface()
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    private var originalPane: some View {
-        TranscriptPane(
-            title: AppText.original,
-            description: AppText.originalDescription,
-            text: line.sourceText,
-            displayText: line.sourceDisplayText,
-            isPrimary: true
-        )
-    }
-
-    private var translationPane: some View {
-        TranscriptPane(
-            title: AppText.translation,
-            description: AppText.translationDescription,
-            text: line.translatedText,
-            displayText: line.translatedDisplayText,
-            isPrimary: false
-        )
+        .padding(20)
     }
 }
 
@@ -259,7 +120,7 @@ private struct TranscriptPane: View {
             }
         }
         .padding(14)
-        .frame(height: 360, alignment: .topLeading)
+        .frame(minHeight: 240, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .airTranslateSurface(isEmphasized: !isPrimary)
         .task(id: copyFeedbackToken) {
@@ -511,255 +372,5 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
             let documentHeight = documentView.bounds.height
             return documentHeight <= scrollView.contentSize.height || documentHeight - visibleMaxY < 24
         }
-    }
-}
-
-private struct SessionOverviewCard: View {
-    let session: TranslationSessionStore
-    let title: String
-    let subtitle: String
-    let isRunning: Bool
-    let isStarting: Bool
-    let isPaused: Bool
-    let statusMessage: String
-    let isFloatingCaptionVisible: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "captions.bubble.fill")
-                .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 24, height: 24)
-                .overlay(alignment: .topTrailing) {
-                    if isFloatingCaptionVisible {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 7, height: 7)
-                            .padding(4)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .help(headerIconHelp)
-                .accessibilityLabel(title)
-                .accessibilityValue(headerIconValue)
-                .animation(
-                    reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.78),
-                    value: isFloatingCaptionVisible
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 12)
-
-            Group {
-                if isRunning {
-                    HeaderAudioLevelStrip(
-                        session: session,
-                        isPaused: isPaused
-                    )
-                } else {
-                    HeaderStatusMessage(
-                        statusMessage: statusMessage,
-                        isStarting: isStarting,
-                        isBlocked: isBlocked
-                    )
-                }
-            }
-            .frame(maxWidth: 300, alignment: .trailing)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .frame(minHeight: 50)
-        .airTranslateSurface()
-    }
-
-    private var headerIconHelp: String {
-        "\(title) · \(subtitle) · \(AppText.floatingCaptions): \(floatingCaptionStateTitle)"
-    }
-
-    private var headerIconValue: String {
-        "\(subtitle), \(AppText.floatingCaptions) \(floatingCaptionStateTitle)"
-    }
-
-    private var floatingCaptionStateTitle: String {
-        isFloatingCaptionVisible ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff
-    }
-
-    private var isBlocked: Bool {
-        !isRunning
-            && !isStarting
-            && statusMessage != AppText.ready
-            && statusMessage != AppText.stopped
-            && statusMessage != AppText.transcriptSavedToast
-    }
-}
-
-private struct HeaderStatusMessage: View {
-    let statusMessage: String
-    let isStarting: Bool
-    let isBlocked: Bool
-
-    private var symbolName: String {
-        if isStarting {
-            return "clock"
-        }
-        if isBlocked {
-            return "exclamationmark.triangle.fill"
-        }
-        return "checkmark.circle.fill"
-    }
-
-    private var foregroundStyle: Color {
-        if isStarting {
-            return .accentColor
-        }
-        if isBlocked {
-            return .orange
-        }
-        return .secondary
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if isStarting {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 16, height: 16)
-            } else {
-                Image(systemName: symbolName)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(foregroundStyle)
-                    .frame(width: 16, height: 16)
-            }
-
-            Text(statusMessage)
-                .font(.caption.weight(isBlocked ? .semibold : .medium))
-                .foregroundStyle(foregroundStyle)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .minimumScaleFactor(0.78)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(foregroundStyle.opacity(isBlocked ? 0.11 : 0.06), in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
-        .help(statusMessage)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(statusMessage)
-    }
-}
-
-private struct HeaderAudioLevelStrip: View {
-    let session: TranslationSessionStore
-    let isPaused: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var title: String {
-        isPaused ? AppText.paused : AppText.listening
-    }
-
-    private var foregroundStyle: Color {
-        isPaused ? .orange : .green
-    }
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)
-                .fill(foregroundStyle.opacity(isPaused ? 0.14 : 0.11))
-
-            RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)
-                .strokeBorder(foregroundStyle.opacity(isPaused ? 0.34 : 0.42), lineWidth: 1)
-
-            HStack(spacing: 8) {
-                if isPaused {
-                    Image(systemName: "pause.fill")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(foregroundStyle)
-                }
-
-                Text(title)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(foregroundStyle)
-                    .lineLimit(1)
-
-                if !isPaused {
-                    AudioLevelWaveform(
-                        level: session.latestAudioLevel,
-                        date: Date(),
-                        barCount: 8,
-                        width: 62,
-                        height: 20,
-                        barWidth: 3.2,
-                        barSpacing: 2.4
-                    )
-                }
-            }
-            .padding(.horizontal, 10)
-        }
-        .frame(width: 154, height: 32)
-        .help(title)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.82),
-            value: isPaused
-        )
-    }
-
-}
-
-private struct AudioLevelWaveform: View {
-    let level: Float?
-    let date: Date
-    var barCount = 5
-    var width = 25.0
-    var height = 24.0
-    var barWidth = 3.8
-    var barSpacing = 3.0
-
-    var body: some View {
-        HStack(alignment: .center, spacing: barSpacing) {
-            ForEach(0..<barCount, id: \.self) { index in
-                Capsule(style: .continuous)
-                    .fill(barFill(for: index))
-                    .frame(width: barWidth, height: barHeight(for: index))
-            }
-        }
-        .frame(width: width, height: height)
-        .accessibilityHidden(true)
-    }
-
-    private var normalizedLevel: Double {
-        guard let level else { return 0.18 }
-
-        let clampedLevel = min(max(Double(level), -60), -12)
-        return (clampedLevel + 60) / 48
-    }
-
-    private func barHeight(for index: Int) -> Double {
-        let centerDistance = abs(Double(index) - Double(barCount - 1) / 2)
-        let centerBoost = max(0.54, 1 - (centerDistance * 0.055))
-        let phase = date.timeIntervalSinceReferenceDate * 7.5 + Double(index) * 0.82
-        let movement = (sin(phase) + 1) / 2
-        let dynamicLevel = 0.18 + normalizedLevel * 0.82
-        let computedHeight = 5 + (dynamicLevel * centerBoost * (0.66 + movement * 0.42) * (height - 5))
-
-        return min(max(computedHeight, 5), height)
-    }
-
-    private func barFill(for index: Int) -> Color {
-        let quietOpacity = 0.44 + Double(index) * 0.035
-        return Color.green.opacity(min(0.92, 0.46 + normalizedLevel * quietOpacity))
     }
 }

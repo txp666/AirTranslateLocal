@@ -1,289 +1,59 @@
-![AirTranslate hero](docs/assets/airtranslate-readme-hero.png)
+# AirTranslate Local
 
-# AirTranslate
+[简体中文](README.zh-CN.md)
 
-Live system-audio transcription and translation for macOS.
+Local live translation and floating captions for Apple Silicon Macs. Capture system audio or a microphone, recognize speech with Apple Speech, and translate the text with a local MLX model.
 
-<p align="center">
-  <a href="https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg"><img alt="Download AirTranslate.dmg" src="https://img.shields.io/badge/Download-AirTranslate.dmg-2EA44F?style=for-the-badge&logo=apple&logoColor=white"></a>
-  <a href="https://github.com/himomohi/AirTranslate/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/himomohi/AirTranslate?style=for-the-badge&label=Latest"></a>
-  <a href="https://himomohi.github.io/AirTranslate/"><img alt="Official guide site" src="https://img.shields.io/badge/Guide-Site-0A84FF?style=for-the-badge"></a>
-</p>
-
-<p align="center">
-  <a href="https://himomohi.github.io/AirTranslate/">Guide Site</a> ·
-  <a href="#download">Download</a> ·
-  <a href="#requirements">Requirements</a> ·
-  <a href="#privacy-and-api-keys">Privacy</a> ·
-  English ·
-  <a href="README.ko.md">한국어</a> ·
-  <a href="README.ja.md">日本語</a> ·
-  <a href="README.zh-CN.md">中文</a>
-</p>
-
-<p align="center">
-  <img alt="macOS 26+" src="https://img.shields.io/badge/macOS-26%2B-0A84FF?style=flat-square&logo=apple">
-  <img alt="Swift 6.2+" src="https://img.shields.io/badge/Swift-6.2%2B-F05138?style=flat-square&logo=swift&logoColor=white">
-  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square"></a>
-</p>
-
-AirTranslate captures audio playing on your Mac, turns it into a live transcript, translates it in real time, and can show the result as a floating caption overlay. It is designed for meetings, lectures, videos, interviews, and streams where routing audio through a microphone is awkward or lossy.
-
-For a user-facing overview, setup guide, and download path, visit the [AirTranslate Guide Site](https://himomohi.github.io/AirTranslate/).
-
-The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Translate are optional API-backed modes and can be enabled from the app only after you provide the matching API key.
-
-## Why AirTranslate
-
-- **System-audio first:** capture Mac playback audio directly with ScreenCaptureKit.
-- **Readable live workspace:** source and translated text stay side by side.
-- **Floating captions:** keep subtitles above other apps while you watch or listen.
-- **Apple by default:** Apple Speech and Apple Translation remain the baseline path.
-- **Optional API modes:** OpenAI Realtime Translation and Gemini Live Translate can be enabled only when needed.
-- **Keychain storage:** OpenAI and Gemini API keys are entered by the user and stored in macOS Keychain.
-- **Plain text history:** saved transcripts remain normal `.txt` files in Application Support.
-
-![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
-
-> "Turn any Mac audio into live captions and translation, right where you are watching."
-
-## What's New in 1.5.1
-
-- **Minimal, consistent interface:** The workspace, sidebar, menu bar, floating captions, transcript library, and Settings now share one restrained system for spacing, icons, surfaces, selection, and hover feedback.
-- **Clearer settings status:** Separate permission rows show the available state or direct you to verify it in System Settings, language assets expose download progress and retry states, and the About pane shows the app version and build.
-- **More reliable settings controls:** Voice volume follows the voice-output state, API-key persistence uses one session-store path, startup checks Keychain presence without reading secret data or showing authentication UI, and floating-caption previews follow the selected display mode.
-- **Keyboard and accessibility:** Settings preserve section identity while navigating, provide clearer accessibility labels and values, and respect Reduce Motion.
-
-See the complete [AirTranslate 1.5.1 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.5.1).
-
-## What's New in 1.5.0
-
-- **Apple Mode lifecycle hardening:** Apple Mode remains the default local-first path and now ignores late permission, warm-up, and capture callbacks from an older start attempt.
-- **Clean external stops:** stopping macOS system-audio capture outside the app now saves the transcript, unlocks the session, and permits a clean restart.
-- **No silent speech-input loss:** audio backpressure becomes a visible controlled stop instead of silently dropping input.
-- **Optional GPT Transcription:** choose `gpt-live-transcribe` for source-only captions only when you provide an OpenAI API key; it is separate from GPT live translation.
-
-See the complete [AirTranslate 1.5.0 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.5.0).
-
-## What's New in 1.4.2
-
-- **Reliable microphone permission prompt:** signed local and release builds now embed the macOS microphone audio-input entitlement required for permission requests.
-- **Release-signing guard:** packaging checks verify Hardened Runtime, the release/debug entitlement split, and the microphone permission description before distribution.
-
-See the complete [AirTranslate 1.4.2 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.4.2).
-
-## What's New in 1.4.1
-
-- **Steadier translated speech:** Apple Mode now waits for stable sentence boundaries before speaking streaming translated text.
-- **Final text still speaks:** final translations that arrive without punctuation are spoken when the translation request completes.
-- **Fewer repeated tails:** restored sentence tails, near-duplicate finalization variants, and short repeated suffixes are suppressed instead of being spoken again.
-- **Cleaner dubbing handoff:** enabling translated speech no longer rereads translation text that was already visible.
-- **Legitimate repeats preserved:** repeated phrases can still be spoken later in a session after the short replay window expires.
-- **Focused regression coverage:** the translated-speech progress logic is covered by dedicated AirTranslateCore tests.
-
-See the complete [AirTranslate 1.4.1 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.4.1).
-
-## Core Features
-
-- Live Mac system-audio capture
-- Apple Speech transcription
-- Apple Translation output
-- Transcribe Only mode with an original-only live workspace
-- Built-in, Bluetooth, and AirPods mic input support
-- Apple basic-mode source-language auto-detect is temporarily disabled while language-switch handling is improved.
-- GPT mode with OpenAI Realtime Translation
-- Optional GPT Transcription with `gpt-live-transcribe` for source-only captions
-- Gemini 3.5 Live Translate mode
-- Microphone input stability fixes for duplicate segments and noisy transitions
-- LIVE Translation mode for API-backed translated streams
-- One-click source/target language swap
-- Floating caption window
-- Transcript polish based on macOS spelling suggestions
-- Optional translated speech output
-- Saved transcript library with edit, delete, and folder access
-- English, Korean, Japanese, and Simplified Chinese interface selection based on the Mac language
-
-## Processing Modes
-
-AirTranslate separates the quick choice from the detailed setup.
-
-| Mode | Best For | Details |
-| --- | --- | --- |
-| Apple Mode | Local-first transcription and translation | Uses Apple Speech for transcription and Apple Translation for the selected language pair. Source-language auto-detect is temporarily disabled while language-switch handling is improved. |
-| GPT Mode | OpenAI Realtime live translation | Streams audio directly to OpenAI Realtime Translation. If no API key is saved, AirTranslate opens the settings modal and focuses the API key field. |
-| GPT Transcription | OpenAI source-only captions | Uses `gpt-live-transcribe` for source-language captions without translation after you choose this optional mode and provide an OpenAI API key. |
-| Gemini Live | Gemini 3.5 Live Translate | Streams audio directly to Gemini Live Translate and shows the returned input and translated transcripts. If no Gemini API key is saved, AirTranslate opens the settings modal and focuses the key field. |
-| Transcribe Only | Source captions without translation | Records source-language captions without running translation. |
-| LIVE Translation | Direct translated stream | Uses the selected API provider's live translation model path when you want the model to produce the translated stream directly. |
-
-GPT/Gemini model details, API key entry, transcript polish, and voice output are managed from the gear-shaped settings modal. The main sidebar only exposes the most important choices.
-
-## Privacy And API Keys
-
-AirTranslate does not ship with a backend account system.
-
-- Apple Mode uses macOS frameworks and locally managed Apple language assets.
-- OpenAI calls happen only when GPT Mode or the optional GPT Transcription mode is enabled.
-- Gemini calls happen only when Gemini Live mode is enabled.
-- OpenAI and Gemini API keys are never hardcoded, committed, or included in release packages.
-- Keys are saved in macOS Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
-- Saved transcripts are plain text files on your Mac.
-
-Need an API key? Open the [OpenAI API key page](https://platform.openai.com/api-keys) or [Google AI Studio API key page](https://aistudio.google.com/app/apikey), create a key, then paste it into AirTranslate's settings modal.
-
-## Apple Translation Language Packs
-
-Apple Mode uses macOS-managed translation languages. Before using Apple Mode with a new language pair, download the needed Apple translation language packs:
-
-1. Open **System Settings**.
-2. Go to **General > Language & Region**.
-3. Click **Translation Languages**.
-4. Click **Download** for each source and target language you want to use.
-5. Optional: turn on **On-Device Mode** if you want macOS to process supported translations on your Mac whenever possible.
-
-If a selected language pair is unavailable or not downloaded, Apple Mode translation may not start or may show an unavailable state until macOS has the required language assets.
-
-## Permissions
-
-AirTranslate asks for the permissions required by its capture and transcription flow.
-
-- Screen Recording
-- System Audio Recording
-- Microphone (only when microphone input is selected)
-- Speech Recognition
-
-Screen Recording is required because ScreenCaptureKit provides the system-audio capture path. AirTranslate does not save screen frames as recordings.
-
-After changing macOS privacy permissions, quit and relaunch the app so the signed app bundle receives the new authorization state.
-
-## Download
-
-Download the latest open-source build from [GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest). The DMG is the easiest install path, and the ZIP remains available as the original lightweight option.
-
-AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
-
-- [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.5.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.5.1/AirTranslate-1.5.1.zip)
-- [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
-- [View version history](Release/VERSION-HISTORY.md)
-
-![AirTranslate install guide](docs/assets/airtranslate-install-guide.svg)
-
-The open-source DMG and ZIP are ad-hoc signed builds for pre-notarization distribution. On the first launch, macOS may show an "unidentified developer" warning. To open the app:
-
-1. Open the DMG and drag `AirTranslate.app` to Applications.
-2. In Applications, Control-click or right-click `AirTranslate.app`.
-3. Choose **Open**, then choose **Open** again in the macOS warning dialog.
-
-You can verify the DMG checksum after downloading:
-
-```bash
-shasum -a 256 AirTranslate.dmg
-cat AirTranslate.dmg.sha256
-```
-
-Developer ID signing and notarization are planned for a later distribution step.
+The interface focuses on source/target languages, audio input, Start/Stop, and floating captions. This fork has no cloud translation accounts, API-key setup, dubbing, or saved-transcript library. The main workspace and floating captions use the same translation results.
 
 ## Requirements
 
-- macOS 26.0 or later
-- Swift 6.2 or later
-- A Mac that supports system-audio capture
-- Apple Speech and Apple Translation framework availability
-- Optional: an OpenAI API key for GPT mode
-- Optional: a Gemini API key for Gemini Live mode
+- Apple Silicon Mac running macOS 26 or later.
+- Xcode with Swift 6.2 or later to build from source.
+- Python 3.11 or later for the separately installed MLX runtime.
+- Internet access for the initial Python packages, model weights, and Apple Speech language assets.
+- Disk space and available memory for your model. The default `mlx-community/Hy-MT2-7B-8bit` has approximately 8 GB of weights; runtime memory usage is additional. See the [model guide](docs/local-mlx.md).
 
-## Build From Source
+## First setup
 
-Run the app bundle:
+From a checkout of this repository:
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-Build and verify launch:
+Open the app and choose **Prepare Local Model**. This explicit step installs the runtime and downloads the selected model. New installations use `~/Library/Application Support/AirTranslate/LocalMLX/.venv`; existing development environments can be reused. If Python is missing, install Python 3.11+ and retry. Python is not installed automatically.
+
+1. Prepare the local model and wait until it is ready.
+2. Choose the source and target languages and the audio input.
+3. Press **Start translating** and grant the requested system-audio/screen-recording and speech-recognition permissions. Microphone permission is needed only for microphone input.
+4. Play the audio you want to translate. Floating captions open automatically when translation starts; their appearance is adjustable in Settings. **Stop** ends capture without saving a transcript.
+
+Download the source language's Apple Speech assets when prompted. After changing macOS privacy permissions, quit and relaunch the app.
+
+The normal model startup uses cached files in offline mode. A missing runtime or model needs the explicit preparation step; it is not silently downloaded during capture. Developers can alternatively run `./script/setup_local_mlx.sh --download-model`. See [local model setup and troubleshooting](docs/local-mlx.md).
+
+## Build and verify
 
 ```bash
-./script/build_and_run.sh --verify
-```
-
-View logs:
-
-```bash
-./script/build_and_run.sh --logs
-```
-
-Reset development permissions:
-
-```bash
-./script/build_and_run.sh --reset-permissions
-```
-
-SwiftPM checks:
-
-```bash
-swift build
 swift test
+./script/verify_packaging_permissions.sh
+./script/build_and_run.sh --build
+./Release/build_open_source_release.sh all
 ```
 
-## Basic Usage
+The development app is `dist/AirTranslate Local.app`. Local release artifacts are written to `Release/product/`. The bundle contains the app and setup helpers, not Python or model weights. Packaging uses ad-hoc signing unless you supply a signing identity; these local artifacts are not notarized. See [packaging instructions](Release/README.md).
 
-1. Choose the source and target languages.
-2. Use the center swap button if you want to reverse the direction.
-3. Choose Apple Mode, GPT Mode, or Gemini Live.
-4. For API-backed modes, add the matching OpenAI or Gemini API key in the settings modal if prompted.
-5. Press Start.
-6. Play meeting, lecture, video, interview, or stream audio on your Mac.
-7. Read the transcript and translation in the main workspace or floating caption window.
-8. Press Stop to save the current transcript.
+The display name is **AirTranslate Local**, and the default bundle identifier remains `com.txp.AirTranslateLocal` to preserve existing local macOS permissions. A distributor can override `DISPLAY_NAME`, `APP_BUNDLE_NAME`, `ARTIFACT_NAME`, and `BUNDLE_ID` in the build environment. Changing the bundle identifier requires granting permissions again. The SwiftPM executable target remains `AirTranslate`.
 
-## Saved Transcripts
+## Privacy
 
-Saved transcripts are stored as plain text files:
+Audio is processed through Apple Speech; recognized text is sent only to the configured loopback MLX endpoint. The app does not call a hosted translation API. It does not save audio or maintain transcript history. Preferences and model files remain on the Mac; runtime diagnostics are held in memory and shown in Settings. The first installation contacts Python package/model hosts and Apple services to obtain required assets. See the [privacy notice](Release/PRIVACY-NOTICE.md).
 
-```text
-~/Library/Application Support/AirTranslate/Transcripts/*.txt
-```
+## Source and licenses
 
-When source and translation are saved together, AirTranslate writes separate `_original.txt` and `_translation.txt` files while presenting them as one grouped item in the library UI.
+This is a modified fork of [himomohi/AirTranslate](https://github.com/himomohi/AirTranslate). The upstream link is an attribution, not a download location for this local edition. The scripts and CI only build and verify artifacts; they do not push tags or publish releases.
 
-## Project Map
+Application source is licensed under [Apache 2.0](LICENSE); original attribution is retained in [NOTICE](NOTICE). MLX LM and model weights are separate dependencies with their own licenses and notices. See [dependency licenses](docs/local-mlx.md#licenses).
 
-```text
-Package.swift
-Resources/
-  AppIcon.png
-  AppIcon.icns
-Sources/AirTranslate/
-  App/
-  Models/
-  Services/
-  Support/
-  Views/
-Sources/AirTranslateCore/
-Tests/
-script/
-  build_and_run.sh
-docs/assets/
-  airtranslate-readme-hero.png
-```
-
-## Key Implementation Areas
-
-- `SystemAudioCapture`: captures Mac system audio through ScreenCaptureKit.
-- `LiveSpeechTranscriber`: streams speech recognition through Apple Speech.
-- `AppleTranslationService`: isolates Apple Translation work.
-- `OpenAIRealtimeTranscriber`: handles optional OpenAI realtime translation and transcript events.
-- `GeminiLiveTranslationService`: handles optional Gemini Live Translate websocket sessions.
-- `OpenAIAPIKeyStore` / `GeminiAPIKeyStore`: save API keys in macOS Keychain.
-- `TranslationSessionStore`: coordinates capture, transcript state, translation, saving, and playback.
-- `SidebarView`: language, mode, session, and settings entry points.
-- `CaptionBoardView`: live transcript, translation, controls, and audio meter.
-- `TranscriptLibraryView`: saved transcript management.
-- `FloatingCaptionWindowController`: floating subtitle window lifecycle.
-
-## License
-
-AirTranslate is released under the [Apache License 2.0](LICENSE). Copyright attribution is provided in [NOTICE](NOTICE).
-
-AirTranslate is an independent open-source project and is not affiliated with Apple, OpenAI, or Google.
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Changes](CHANGELOG.md)

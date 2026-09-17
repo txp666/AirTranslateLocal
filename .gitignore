@@ -22,6 +22,9 @@ Release/product/
 
 # Local Codex/app environment
 .codex/
+.venv/
+__pycache__/
+*.pyc
 
 # Local contributor notes
 devlog/
@@ -31,6 +34,8 @@ devlog/
 .env.*
 !.env.example
 *.p12
+*.key
+*.pem
 *.cer
 *.mobileprovision
 *.provisionprofile
@@ -39,3 +44,7 @@ devlog/
 *.log
 *.tmp
 tmp/
+
+# Downloaded model weights and local Python cache
+*.safetensors
+.hf_cache/

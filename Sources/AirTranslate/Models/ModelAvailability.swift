@@ -37,7 +37,7 @@ struct ModelAvailability: Equatable {
     let state: ModelAvailabilityState
     let detail: String
 
-    static func checking(for model: IntelligenceModel) -> ModelAvailability {
-        ModelAvailability(state: .checking, detail: model.checkingDetail)
+    static var checking: ModelAvailability {
+        ModelAvailability(state: .checking, detail: AppText.modelStatusChecking)
     }
 }

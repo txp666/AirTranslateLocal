@@ -272,7 +272,7 @@ struct PipelineLifecycleTests {
     @Test
     @MainActor
     func cancellingPermissionSuspendedStartReleasesConfigurationLockAndAllowsRestart() async throws {
-        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let session = makeLocalTestSession()
         let firstGeneration = try #require(session.beginPermissionSuspendedStartForTesting())
         await waitForPermissionSuspension(on: session)
 
@@ -625,7 +625,7 @@ struct PipelineLifecycleTests {
     @Test
     @MainActor
     func lateFirstPermissionResumeDoesNotUnlockOrStopNewerStart() async throws {
-        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let session = makeLocalTestSession()
         let firstGeneration = try #require(session.beginPermissionSuspendedStartForTesting())
         await waitForPermissionSuspension(on: session, generation: firstGeneration)
 
@@ -746,12 +746,7 @@ struct PipelineLifecycleTests {
             audioInputSource: audioInputSource,
             microphoneDeviceUniqueID: nil,
             sourceLanguage: .english,
-            targetLanguage: .korean,
-            selectedModel: .appleSystem,
-            openAITranscriptionModel: .off,
-            openAITranslationModel: .off,
-            geminiTranslationModel: .off,
-            usesAppleSourceAutoDetection: false
+            targetLanguage: .korean
         )
     }
 }
